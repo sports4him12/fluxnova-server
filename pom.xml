@@ -55,10 +55,17 @@
             <artifactId>spring-boot-starter-jdbc</artifactId>
         </dependency>
 
-        <!-- H2 in-memory database (no MySQL needed for the engine itself) -->
+        <!-- H2 for local dev; overridden by MySQL env vars in production -->
         <dependency>
             <groupId>com.h2database</groupId>
             <artifactId>h2</artifactId>
+        </dependency>
+
+        <!-- MySQL connector for Aurora (production) -->
+        <dependency>
+            <groupId>com.mysql</groupId>
+            <artifactId>mysql-connector-j</artifactId>
+            <scope>runtime</scope>
         </dependency>
 
         <!-- Required by Camunda on Java 11+ -->
