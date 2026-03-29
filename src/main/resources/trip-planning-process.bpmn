@@ -1,0 +1,219 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xmlns:camunda="http://camunda.org/schema/1.0/bpmn"
+             xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+             xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+             xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+             targetNamespace="http://fluxnova.com/bpmn">
+
+  <process id="trip-planning-process"
+           name="Trip Planning Process"
+           isExecutable="true"
+           camunda:historyTimeToLive="P90D">
+
+    <!-- ── 1. Start ─────────────────────────────────────────────────────── -->
+    <startEvent id="start" name="Trip Planning&#10;Started">
+      <outgoing>flow-start-to-gather</outgoing>
+    </startEvent>
+
+    <!-- ── 2. AI Chat: gather trip details ──────────────────────────────── -->
+    <userTask id="gather-trip-details"
+              name="Gather Trip Details&#10;via AI Chat"
+              camunda:formKey="gather-trip-details">
+      <documentation>
+        The traveller uses the AI Chat Agent to describe their ideal trip:
+        destination preferences, travel window, budget, group size, and any
+        special requirements. The agent stores the collected details as
+        process variables (destination, season, budget, groupSize, notes).
+      </documentation>
+      <incoming>flow-start-to-gather</incoming>
+      <outgoing>flow-gather-to-review</outgoing>
+    </userTask>
+
+    <!-- ── 3. Human approval: review and confirm ────────────────────────── -->
+    <userTask id="review-and-confirm"
+              name="Review &amp; Confirm&#10;Trip Details"
+              camunda:formKey="review-and-confirm">
+      <documentation>
+        The traveller reviews a summary of the details gathered by the AI
+        agent and either confirms them (confirmed=true) or requests changes
+        (confirmed=false), which loops back to this step.
+      </documentation>
+      <incoming>flow-gather-to-review</incoming>
+      <incoming>flow-needs-changes</incoming>
+      <outgoing>flow-review-to-gateway</outgoing>
+    </userTask>
+
+    <!-- ── 4. Gateway: confirmed? ────────────────────────────────────────── -->
+    <exclusiveGateway id="confirmed-gateway" name="Details&#10;Confirmed?">
+      <incoming>flow-review-to-gateway</incoming>
+      <outgoing>flow-approved</outgoing>
+      <outgoing>flow-needs-changes</outgoing>
+    </exclusiveGateway>
+
+    <!-- ── 5. Generate trip outline (AI external worker) ─────────────────── -->
+    <!--
+      External task: the fluxnova-ai Spring Boot app registers a worker for
+      the topic "generate-trip-outline". It reads process variables, calls
+      the AI assistant, and writes the outline back as a variable (tripOutline).
+    -->
+    <serviceTask id="generate-trip-outline"
+                 name="Generate Trip Outline"
+                 camunda:type="external"
+                 camunda:topic="generate-trip-outline">
+      <documentation>
+        AI-generated structured trip outline written back to the process as
+        the variable "tripOutline" (JSON string with itinerary, highlights,
+        and estimated costs).
+      </documentation>
+      <incoming>flow-approved</incoming>
+      <outgoing>flow-outline-to-expedia</outgoing>
+    </serviceTask>
+
+    <!-- ── 6. Book with Expedia (external worker) ─────────────────────────── -->
+    <!--
+      External task: the fluxnova-ai Spring Boot app registers a worker for
+      the topic "book-with-expedia". It calls the Expedia API using the
+      approved outline and writes booking confirmation back as "bookingRef".
+    -->
+    <serviceTask id="book-with-expedia"
+                 name="Book with Expedia"
+                 camunda:type="external"
+                 camunda:topic="book-with-expedia">
+      <documentation>
+        Calls the Expedia API to search and book flights, hotels, and
+        activities based on the approved trip outline. Writes "bookingRef"
+        and "bookingDetails" back to the process on success.
+      </documentation>
+      <incoming>flow-outline-to-expedia</incoming>
+      <outgoing>flow-expedia-to-end</outgoing>
+    </serviceTask>
+
+    <!-- ── 7. End ─────────────────────────────────────────────────────────── -->
+    <endEvent id="end" name="Trip Booked">
+      <incoming>flow-expedia-to-end</incoming>
+    </endEvent>
+
+    <!-- ── Sequence Flows ─────────────────────────────────────────────────── -->
+    <sequenceFlow id="flow-start-to-gather"   sourceRef="start"               targetRef="gather-trip-details"/>
+    <sequenceFlow id="flow-gather-to-review"  sourceRef="gather-trip-details"  targetRef="review-and-confirm"/>
+    <sequenceFlow id="flow-review-to-gateway" sourceRef="review-and-confirm"   targetRef="confirmed-gateway"/>
+
+    <sequenceFlow id="flow-approved" name="Yes" sourceRef="confirmed-gateway" targetRef="generate-trip-outline">
+      <conditionExpression xsi:type="tFormalExpression">${confirmed == true}</conditionExpression>
+    </sequenceFlow>
+    <sequenceFlow id="flow-needs-changes" name="No — Request Changes" sourceRef="confirmed-gateway" targetRef="review-and-confirm">
+      <conditionExpression xsi:type="tFormalExpression">${confirmed != true}</conditionExpression>
+    </sequenceFlow>
+
+    <sequenceFlow id="flow-outline-to-expedia" sourceRef="generate-trip-outline" targetRef="book-with-expedia"/>
+    <sequenceFlow id="flow-expedia-to-end"     sourceRef="book-with-expedia"      targetRef="end"/>
+
+  </process>
+
+  <!-- ── Diagram Interchange (required for Cockpit rendering) ─────────────── -->
+  <bpmndi:BPMNDiagram id="BPMNDiagram_trip-planning">
+    <bpmndi:BPMNPlane id="BPMNPlane_trip-planning" bpmnElement="trip-planning-process">
+
+      <!-- Start -->
+      <bpmndi:BPMNShape id="shape-start" bpmnElement="start">
+        <dc:Bounds x="152" y="202" width="36" height="36"/>
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="130" y="245" width="80" height="27"/>
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+
+      <!-- Gather Trip Details -->
+      <bpmndi:BPMNShape id="shape-gather" bpmnElement="gather-trip-details">
+        <dc:Bounds x="240" y="180" width="130" height="80"/>
+        <bpmndi:BPMNLabel/>
+      </bpmndi:BPMNShape>
+
+      <!-- Review & Confirm -->
+      <bpmndi:BPMNShape id="shape-review" bpmnElement="review-and-confirm">
+        <dc:Bounds x="430" y="180" width="130" height="80"/>
+        <bpmndi:BPMNLabel/>
+      </bpmndi:BPMNShape>
+
+      <!-- Confirmed? Gateway -->
+      <bpmndi:BPMNShape id="shape-gateway" bpmnElement="confirmed-gateway" isMarkerVisible="true">
+        <dc:Bounds x="625" y="195" width="50" height="50"/>
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="608" y="252" width="84" height="27"/>
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+
+      <!-- Generate Trip Outline -->
+      <bpmndi:BPMNShape id="shape-outline" bpmnElement="generate-trip-outline">
+        <dc:Bounds x="740" y="180" width="130" height="80"/>
+        <bpmndi:BPMNLabel/>
+      </bpmndi:BPMNShape>
+
+      <!-- Book with Expedia -->
+      <bpmndi:BPMNShape id="shape-expedia" bpmnElement="book-with-expedia">
+        <dc:Bounds x="940" y="180" width="130" height="80"/>
+        <bpmndi:BPMNLabel/>
+      </bpmndi:BPMNShape>
+
+      <!-- End -->
+      <bpmndi:BPMNShape id="shape-end" bpmnElement="end">
+        <dc:Bounds x="1142" y="202" width="36" height="36"/>
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1130" y="245" width="60" height="14"/>
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+
+      <!-- flow-start-to-gather -->
+      <bpmndi:BPMNEdge id="edge-start-gather" bpmnElement="flow-start-to-gather">
+        <di:waypoint x="188" y="220"/>
+        <di:waypoint x="240" y="220"/>
+      </bpmndi:BPMNEdge>
+
+      <!-- flow-gather-to-review -->
+      <bpmndi:BPMNEdge id="edge-gather-review" bpmnElement="flow-gather-to-review">
+        <di:waypoint x="370" y="220"/>
+        <di:waypoint x="430" y="220"/>
+      </bpmndi:BPMNEdge>
+
+      <!-- flow-review-to-gateway -->
+      <bpmndi:BPMNEdge id="edge-review-gateway" bpmnElement="flow-review-to-gateway">
+        <di:waypoint x="560" y="220"/>
+        <di:waypoint x="625" y="220"/>
+      </bpmndi:BPMNEdge>
+
+      <!-- flow-approved (Yes) -->
+      <bpmndi:BPMNEdge id="edge-approved" bpmnElement="flow-approved">
+        <di:waypoint x="675" y="220"/>
+        <di:waypoint x="740" y="220"/>
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="693" y="202" width="18" height="14"/>
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+
+      <!-- flow-needs-changes (No — loops below back to review) -->
+      <bpmndi:BPMNEdge id="edge-needs-changes" bpmnElement="flow-needs-changes">
+        <di:waypoint x="650" y="245"/>
+        <di:waypoint x="650" y="330"/>
+        <di:waypoint x="495" y="330"/>
+        <di:waypoint x="495" y="260"/>
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="530" y="312" width="90" height="27"/>
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+
+      <!-- flow-outline-to-expedia -->
+      <bpmndi:BPMNEdge id="edge-outline-expedia" bpmnElement="flow-outline-to-expedia">
+        <di:waypoint x="870" y="220"/>
+        <di:waypoint x="940" y="220"/>
+      </bpmndi:BPMNEdge>
+
+      <!-- flow-expedia-to-end -->
+      <bpmndi:BPMNEdge id="edge-expedia-end" bpmnElement="flow-expedia-to-end">
+        <di:waypoint x="1070" y="220"/>
+        <di:waypoint x="1142" y="220"/>
+      </bpmndi:BPMNEdge>
+
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</definitions>
