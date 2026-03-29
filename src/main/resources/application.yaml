@@ -12,8 +12,8 @@ camunda:
 
 spring:
   datasource:
-    # H2 in-memory — engine state resets on restart; swap for MySQL later if needed
-    url: jdbc:h2:mem:camunda;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    # H2 file-based — persists workflow state across restarts
+    url: jdbc:h2:file:${user.home}/.fluxnova/camunda-db;DB_CLOSE_DELAY=-1
     driver-class-name: org.h2.Driver
     username: sa
     password:
