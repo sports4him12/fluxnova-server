@@ -9,6 +9,7 @@ camunda:
       firstName: Demo
     filter:
       create: All tasks
+    auto-deployment-enabled: true   # deploys all *.bpmn from classpath on startup
 
 spring:
   datasource:
