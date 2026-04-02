@@ -9,7 +9,8 @@ camunda:
       firstName: Demo
     filter:
       create: All tasks
-    auto-deployment-enabled: true   # deploys all *.bpmn from classpath on startup
+    auto-deployment-enabled: true     # deploys all *.bpmn from classpath on startup
+    deploy-changed-only: false        # always redeploy so BPMN changes take effect after restart
 
 spring:
   datasource:
