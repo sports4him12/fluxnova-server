@@ -28,6 +28,7 @@
         process variables (destination, season, budget, groupSize, notes).
       </documentation>
       <incoming>flow-start-to-gather</incoming>
+      <incoming>flow-needs-changes</incoming>
       <outgoing>flow-gather-to-review</outgoing>
     </userTask>
 
@@ -41,7 +42,6 @@
         (confirmed=false), which loops back to this step.
       </documentation>
       <incoming>flow-gather-to-review</incoming>
-      <incoming>flow-needs-changes</incoming>
       <outgoing>flow-review-to-gateway</outgoing>
     </userTask>
 
@@ -103,7 +103,7 @@
     <sequenceFlow id="flow-approved" name="Yes" sourceRef="confirmed-gateway" targetRef="generate-trip-outline">
       <conditionExpression xsi:type="tFormalExpression">${confirmed == true}</conditionExpression>
     </sequenceFlow>
-    <sequenceFlow id="flow-needs-changes" name="No — Request Changes" sourceRef="confirmed-gateway" targetRef="review-and-confirm">
+    <sequenceFlow id="flow-needs-changes" name="No — Request Changes" sourceRef="confirmed-gateway" targetRef="gather-trip-details">
       <conditionExpression xsi:type="tFormalExpression">${confirmed != true}</conditionExpression>
     </sequenceFlow>
 
@@ -191,14 +191,14 @@
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNEdge>
 
-      <!-- flow-needs-changes (No — loops below back to review) -->
+      <!-- flow-needs-changes (No — loops back to gather-trip-details) -->
       <bpmndi:BPMNEdge id="edge-needs-changes" bpmnElement="flow-needs-changes">
         <di:waypoint x="650" y="245"/>
-        <di:waypoint x="650" y="330"/>
-        <di:waypoint x="495" y="330"/>
-        <di:waypoint x="495" y="260"/>
+        <di:waypoint x="650" y="340"/>
+        <di:waypoint x="305" y="340"/>
+        <di:waypoint x="305" y="260"/>
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="530" y="312" width="90" height="27"/>
+          <dc:Bounds x="440" y="322" width="90" height="27"/>
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNEdge>
 
