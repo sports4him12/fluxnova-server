@@ -52,47 +52,22 @@
       <outgoing>flow-needs-changes</outgoing>
     </exclusiveGateway>
 
-    <!-- ── 5. Generate trip outline (AI external worker) ─────────────────── -->
-    <!--
-      External task: the fluxnova-ai Spring Boot app registers a worker for
-      the topic "generate-trip-outline". It reads process variables, calls
-      the AI assistant, and writes the outline back as a variable (tripOutline).
-    -->
-    <serviceTask id="generate-trip-outline"
-                 name="Generate Trip Outline"
-                 camunda:type="external"
-                 camunda:topic="generate-trip-outline">
+    <!-- ── 5. Generate Trip PDF ──────────────────────────────────────────── -->
+    <userTask id="generate-trip-pdf"
+              name="Generate Trip PDF"
+              camunda:formKey="generate-trip-pdf">
       <documentation>
-        AI-generated structured trip outline written back to the process as
-        the variable "tripOutline" (JSON string with itinerary, highlights,
-        and estimated costs).
+        The traveller clicks "Download Trip PDF" to generate and download a PDF
+        summary of all confirmed trip details, then completes this task to finish
+        the workflow.
       </documentation>
       <incoming>flow-approved</incoming>
-      <outgoing>flow-outline-to-expedia</outgoing>
-    </serviceTask>
+      <outgoing>flow-pdf-to-end</outgoing>
+    </userTask>
 
-    <!-- ── 6. Book with Expedia (external worker) ─────────────────────────── -->
-    <!--
-      External task: the fluxnova-ai Spring Boot app registers a worker for
-      the topic "book-with-expedia". It calls the Expedia API using the
-      approved outline and writes booking confirmation back as "bookingRef".
-    -->
-    <serviceTask id="book-with-expedia"
-                 name="Book with Expedia"
-                 camunda:type="external"
-                 camunda:topic="book-with-expedia">
-      <documentation>
-        Calls the Expedia API to search and book flights, hotels, and
-        activities based on the approved trip outline. Writes "bookingRef"
-        and "bookingDetails" back to the process on success.
-      </documentation>
-      <incoming>flow-outline-to-expedia</incoming>
-      <outgoing>flow-expedia-to-end</outgoing>
-    </serviceTask>
-
-    <!-- ── 7. End ─────────────────────────────────────────────────────────── -->
-    <endEvent id="end" name="Trip Booked">
-      <incoming>flow-expedia-to-end</incoming>
+    <!-- ── 6. End ─────────────────────────────────────────────────────────── -->
+    <endEvent id="end" name="Trip PDF Ready">
+      <incoming>flow-pdf-to-end</incoming>
     </endEvent>
 
     <!-- ── Sequence Flows ─────────────────────────────────────────────────── -->
@@ -100,15 +75,14 @@
     <sequenceFlow id="flow-gather-to-review"  sourceRef="gather-trip-details"  targetRef="review-and-confirm"/>
     <sequenceFlow id="flow-review-to-gateway" sourceRef="review-and-confirm"   targetRef="confirmed-gateway"/>
 
-    <sequenceFlow id="flow-approved" name="Yes" sourceRef="confirmed-gateway" targetRef="generate-trip-outline">
+    <sequenceFlow id="flow-approved" name="Yes" sourceRef="confirmed-gateway" targetRef="generate-trip-pdf">
       <conditionExpression xsi:type="tFormalExpression">${confirmed == true}</conditionExpression>
     </sequenceFlow>
     <sequenceFlow id="flow-needs-changes" name="No — Request Changes" sourceRef="confirmed-gateway" targetRef="gather-trip-details">
       <conditionExpression xsi:type="tFormalExpression">${confirmed != true}</conditionExpression>
     </sequenceFlow>
 
-    <sequenceFlow id="flow-outline-to-expedia" sourceRef="generate-trip-outline" targetRef="book-with-expedia"/>
-    <sequenceFlow id="flow-expedia-to-end"     sourceRef="book-with-expedia"      targetRef="end"/>
+    <sequenceFlow id="flow-pdf-to-end" sourceRef="generate-trip-pdf" targetRef="end"/>
 
   </process>
 
@@ -144,23 +118,17 @@
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
 
-      <!-- Generate Trip Outline -->
-      <bpmndi:BPMNShape id="shape-outline" bpmnElement="generate-trip-outline">
+      <!-- Generate Trip PDF -->
+      <bpmndi:BPMNShape id="shape-pdf" bpmnElement="generate-trip-pdf">
         <dc:Bounds x="740" y="180" width="130" height="80"/>
-        <bpmndi:BPMNLabel/>
-      </bpmndi:BPMNShape>
-
-      <!-- Book with Expedia -->
-      <bpmndi:BPMNShape id="shape-expedia" bpmnElement="book-with-expedia">
-        <dc:Bounds x="940" y="180" width="130" height="80"/>
         <bpmndi:BPMNLabel/>
       </bpmndi:BPMNShape>
 
       <!-- End -->
       <bpmndi:BPMNShape id="shape-end" bpmnElement="end">
-        <dc:Bounds x="1142" y="202" width="36" height="36"/>
+        <dc:Bounds x="942" y="202" width="36" height="36"/>
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="1130" y="245" width="60" height="14"/>
+          <dc:Bounds x="920" y="245" width="80" height="14"/>
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
 
@@ -202,16 +170,10 @@
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNEdge>
 
-      <!-- flow-outline-to-expedia -->
-      <bpmndi:BPMNEdge id="edge-outline-expedia" bpmnElement="flow-outline-to-expedia">
+      <!-- flow-pdf-to-end -->
+      <bpmndi:BPMNEdge id="edge-pdf-end" bpmnElement="flow-pdf-to-end">
         <di:waypoint x="870" y="220"/>
-        <di:waypoint x="940" y="220"/>
-      </bpmndi:BPMNEdge>
-
-      <!-- flow-expedia-to-end -->
-      <bpmndi:BPMNEdge id="edge-expedia-end" bpmnElement="flow-expedia-to-end">
-        <di:waypoint x="1070" y="220"/>
-        <di:waypoint x="1142" y="220"/>
+        <di:waypoint x="942" y="220"/>
       </bpmndi:BPMNEdge>
 
     </bpmndi:BPMNPlane>
